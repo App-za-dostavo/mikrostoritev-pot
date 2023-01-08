@@ -38,26 +38,30 @@ kumuluzee:
     web-instrumentation:
       - name: pot-endpoint
         url-pattern: /v1/pot/*
+    servlet:
+      enabled: true
+      mapping: /metrics
+
   logs:
     config-file: '<?xml version="1.0" encoding="UTF-8"?>
-                          <Configuration name="comments">
-                              <Appenders>
-                                  <Console name="console" target="SYSTEM_OUT">
-                                      <PatternLayout pattern="%d %p %marker %m %X %ex %n"/>
-                                  </Console>
-                                  <Socket name="logstash" host="24c805d1-45a9-4d59-93b4-fc92236277b8-ls.logit.io"
-                                  port="54321" protocol="udp">
-                                      <JSONLayout complete="false" compact="true" eventEol="true" charset="UTF-8" properties="true"/>
-                                  </Socket>
-                              </Appenders>
-                              <Loggers>
-                                  <!-- Default logger -->
-                                  <Root level="all">
-                                      <AppenderRef ref="console" level="info" />
-                                      <AppenderRef ref="logstash" level="trace" />
-                                  </Root>
-                              </Loggers>
-                          </Configuration>'
+                    <Configuration name="customers">
+                        <Appenders>
+                            <Console name="console" target="SYSTEM_OUT">
+                                <PatternLayout pattern="%d %p %marker %m %X %ex %n"/>
+                            </Console>
+                        </Appenders>
+                        <Loggers>
+                            <!-- Resources (REST) -->
+                            <Logger name="com.kumuluz.ee.samples.kumuluzee_logs.CustomerResource" level="trace" additivity="false">
+                                <AppenderRef ref="console"/>
+                            </Logger>
+                    
+                            <!-- Default logger -->
+                            <Root level="info">
+                                <AppenderRef ref="console"/>
+                            </Root>
+                        </Loggers>
+                    </Configuration>'
 
   external-api:
     mapquestApi: https://www.mapquestapi.com/directions/v2/optimizedroute?key=C0a6ATPbuQ30XjwFnoy7xAYYmajidgtD

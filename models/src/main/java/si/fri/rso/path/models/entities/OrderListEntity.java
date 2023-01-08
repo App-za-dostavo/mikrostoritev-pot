@@ -1,10 +1,15 @@
 package si.fri.rso.path.models.entities;
 
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.util.List;
 
+@Entity
+@Table(name = "pot")
+@NamedQueries(value =
+        {
+                @NamedQuery(name = "OrderListEntity.getAll", query = "SELECT order FROM OrderListEntity order"),
+                @NamedQuery(name = "OrderListEntity.getById", query = "SELECT order FROM OrderListEntity order WHERE order.id=:id")
+        })
 public class OrderListEntity {
 
     @Id
@@ -12,7 +17,7 @@ public class OrderListEntity {
     private Integer id;
     private String items;
     private Double cost;
-    private Double time;
+    private Integer time;
     private Double distance;
     private String firstName;
     private String lastName;
@@ -41,11 +46,11 @@ public class OrderListEntity {
         this.cost = cost;
     }
 
-    public Double getTime() {
+    public Integer getTime() {
         return time;
     }
 
-    public void setTime(Double time) {
+    public void setTime(Integer time) {
         this.time = time;
     }
 

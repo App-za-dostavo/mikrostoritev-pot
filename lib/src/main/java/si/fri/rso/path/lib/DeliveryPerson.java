@@ -9,7 +9,7 @@ public class DeliveryPerson {
     private Double latitude;
     private Double longitude;
     private Double distance;
-    private Double time;
+    private Integer time;
 
     public Double getDistance() {
         return distance;
@@ -19,11 +19,11 @@ public class DeliveryPerson {
         this.distance = distance;
     }
 
-    public Double getTime() {
+    public Integer getTime() {
         return time;
     }
 
-    public void setTime(Double time) {
+    public void setTime(Integer time) {
         this.time = time;
     }
 

@@ -8,6 +8,7 @@ import com.kumuluz.ee.configuration.cdi.ConfigValue;
 import com.kumuluz.ee.cors.annotations.CrossOrigin;
 import com.kumuluz.ee.discovery.annotations.DiscoverService;
 import com.kumuluz.ee.logs.cdi.Log;
+import com.kumuluz.ee.logs.cdi.LogParams;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -18,6 +19,7 @@ import org.apache.http.util.EntityUtils;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 import org.json.JSONArray;
@@ -42,7 +44,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-@Log
+@Log(LogParams.METRICS)
 @ConfigBundle("external-api")
 @ApplicationScoped
 @javax.ws.rs.Path("/pot")
@@ -53,7 +55,7 @@ public class PathResource {
 
     private static final double LATITUDE = 46.0466531;
     private static final double LONGITUDE = 14.5076098;
-    private String url = "http://172.21.0.5:8082/v1/dostavljalec";
+    private String url = "http://172.21.0.8:8082/v1/dostavljalec";
     @Inject
     private OrderListBean orderListBean;
 
@@ -82,37 +84,6 @@ public class PathResource {
     CloseableHttpClient httpClient = HttpClients.createDefault();
     ObjectMapper mapper = new ObjectMapper();
 
-    private String myHttpPost(String url, String jsonbody) {
-        HttpPost request = new HttpPost(url);
-        request.setHeader("Accept", "application/json");
-        request.setHeader("Content-type", "application/json");
-        CloseableHttpResponse response = null;
-        try {
-            request.setEntity(new StringEntity(jsonbody));
-        } catch (UnsupportedEncodingException e) {
-            return e.getMessage();
-        }
-        try {
-            response = httpClient.execute(request);
-            return EntityUtils.toString(response.getEntity());
-        } catch (IOException | IllegalArgumentException e) {
-            return e.getMessage();
-        }
-
-    }
-
-    private String myHttpGet(String url) {
-        HttpGet request = new HttpGet(url);
-        CloseableHttpResponse response = null;
-
-        try {
-            response = httpClient.execute(request);
-            return EntityUtils.toString(response.getEntity());
-        } catch (IOException e) {
-            return e.getMessage();
-        }
-    }
-
     @Operation(description = "Get an ip of another microservice", summary = "Get method for fetching ip from a different service.")
     @APIResponses({
             @APIResponse(responseCode = "200",
@@ -132,6 +103,7 @@ public class PathResource {
 
     @Operation(description = "Get a list of available orders")
     @GET
+    @Log(value = LogParams.METRICS)
     public Response getOrderList() {
 
         List<OrderList> orderLists = orderListBean.getOrders(uriInfo);
@@ -147,7 +119,8 @@ public class PathResource {
             @APIResponse(responseCode = "500", description = "Something went wrong")
     })
     @POST
-    public Response getDeliveryDiscovery(Double latitude, Double longitude, Order order) throws JsonProcessingException {
+    @Path("/lokacija={latitude},{longitude}")
+    public Response getDeliveryDiscovery(@PathParam("latitude") Double latitude, @PathParam("longitude") Double longitude, @RequestBody(description = "A new order added to the database", required = true, content = @Content(schema = @Schema(implementation = Order.class)))Order order) throws JsonProcessingException {
         if (!dostavljalecUrl.isPresent()) {
             System.out.println("Other service unavailable");
             return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
@@ -205,18 +178,16 @@ public class PathResource {
 
             DeliveryPerson person = deliveryPersonList.get(i);
             Double distance = 0.0;
-            Double time = 0.0;
+            Integer time = 0;
             for (int j = 1; j < distances.length(); j++) {
-                distance += (Double) distances.get(j);
-                time += (Double) times.get(j);
+                distance += (Double) (distances.get(j));
+                time += (Integer) (times.get(j));
             }
             distance = distance*1.609344;
-            time = time/60;
             person.setDistance(distance);
             person.setTime(time);
 
             String jsonString = mapper.writeValueAsString(person);
-            System.out.println("Person is" + jsonString);
         }
 
         DeliveryPerson personWithLowestTime = deliveryPersonList.stream().min(Comparator.comparing(DeliveryPerson::getTime)).orElseThrow(NoSuchElementException::new);
@@ -231,10 +202,51 @@ public class PathResource {
 
         String orderJson = mapper.writeValueAsString(orderList);
 
-        System.out.println("Whole order is: " + orderJson);
-
         OrderList finalList = orderListBean.createOrder(orderList);
 
         return Response.status(Response.Status.OK).entity(finalList).build();
+    }
+
+    @DELETE
+    @Path("/{orderId}")
+    public Response deleteOrder(@PathParam("orderId") Integer orderId) {
+        boolean deleted = orderListBean.deleteOrder(orderId);
+
+        if (deleted) {
+            return Response.status(Response.Status.OK).entity("Successfully deleted order id" + orderId).build();
+        } else {
+            return Response.status(Response.Status.NOT_FOUND).entity("This order does not exist").build();
+        }
+    }
+
+    private String myHttpPost(String url, String jsonbody) {
+        HttpPost request = new HttpPost(url);
+        request.setHeader("Accept", "application/json");
+        request.setHeader("Content-type", "application/json");
+        CloseableHttpResponse response = null;
+        try {
+            request.setEntity(new StringEntity(jsonbody));
+        } catch (UnsupportedEncodingException e) {
+            return e.getMessage();
+        }
+        try {
+            response = httpClient.execute(request);
+            return EntityUtils.toString(response.getEntity());
+        } catch (IOException | IllegalArgumentException e) {
+            return e.getMessage();
+        }
+
+    }
+
+    private String myHttpGet(String url) {
+        HttpGet request = new HttpGet(url);
+        CloseableHttpResponse response = null;
+
+        try {
+            response = httpClient.execute(request);
+            return EntityUtils.toString(response.getEntity());
+        } catch (IOException e) {
+            return e.getMessage();
+        }
     }
 }

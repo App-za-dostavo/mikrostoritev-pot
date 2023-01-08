@@ -5,7 +5,7 @@ public class OrderList {
     private Integer id;
     private String items;
     private Double cost;
-    private Double time;
+    private Integer time;
     private Double distance;
     private String firstName;
     private String lastName;
@@ -34,11 +34,11 @@ public class OrderList {
         this.cost = cost;
     }
 
-    public Double getTime() {
+    public Integer getTime() {
         return time;
     }
 
-    public void setTime(Double time) {
+    public void setTime(Integer time) {
         this.time = time;
     }
 
