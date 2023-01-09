@@ -12,6 +12,7 @@ import com.kumuluz.ee.logs.cdi.LogParams;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -39,10 +40,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import java.util.*;
 
 @Log(LogParams.METRICS)
 @ConfigBundle("external-api")
@@ -55,7 +53,7 @@ public class PathResource {
 
     private static final double LATITUDE = 46.0466531;
     private static final double LONGITUDE = 14.5076098;
-    private String url = "http://172.21.0.8:8082/v1/dostavljalec";
+    private String url = "http://172.21.0.6:8082/v1/dostavljalec";
     @Inject
     private OrderListBean orderListBean;
 
@@ -127,6 +125,8 @@ public class PathResource {
         }
 
         java.util.List<DeliveryPerson> deliveryPersonList = null;
+        java.util.List<DeliveryPerson> availablePeopleList = new ArrayList<>();
+
 
         // Get a list of delivery people
         String deliveryPersonString = myHttpGet(url);
@@ -138,8 +138,17 @@ public class PathResource {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
         }
 
-        // Call external api
         for (int i = 0; i < deliveryPersonList.size(); i++) {
+            if (deliveryPersonList.get(i).getAvailability()) {
+                availablePeopleList.add(deliveryPersonList.get(i));
+                String jsonInStringPretty = mapper.
+                        writerWithDefaultPrettyPrinter().writeValueAsString(availablePeopleList.get(i));
+                System.out.println("Available people:  " + jsonInStringPretty);
+            }
+        }
+
+        // Call external api
+        for (int i = 0; i < availablePeopleList.size(); i++) {
 
             //Create a json object
             JSONObject jsonBody = new JSONObject();
@@ -157,8 +166,8 @@ public class PathResource {
 
             // Add the location of the delivery person
             JSONObject latLng = new JSONObject().put("latLng", new JSONObject()
-                    .put("lat", deliveryPersonList.get(i).getLatitude())
-                    .put("lng", deliveryPersonList.get(i).getLongitude()));
+                    .put("lat", availablePeopleList.get(i).getLatitude())
+                    .put("lng", availablePeopleList.get(i).getLongitude()));
             latLngArr.put(latLng);
             jsonBody.put("locations", latLngArr);
 
@@ -176,7 +185,7 @@ public class PathResource {
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Something went wrong while parsing JSON response").build();
             }
 
-            DeliveryPerson person = deliveryPersonList.get(i);
+            DeliveryPerson person = availablePeopleList.get(i);
             Double distance = 0.0;
             Integer time = 0;
             for (int j = 1; j < distances.length(); j++) {
@@ -186,11 +195,9 @@ public class PathResource {
             distance = distance*1.609344;
             person.setDistance(distance);
             person.setTime(time);
-
-            String jsonString = mapper.writeValueAsString(person);
         }
 
-        DeliveryPerson personWithLowestTime = deliveryPersonList.stream().min(Comparator.comparing(DeliveryPerson::getTime)).orElseThrow(NoSuchElementException::new);
+        DeliveryPerson personWithLowestTime = availablePeopleList.stream().min(Comparator.comparing(DeliveryPerson::getTime)).orElseThrow(NoSuchElementException::new);
 
         OrderList orderList = new OrderList();
         orderList.setTime(personWithLowestTime.getTime());
@@ -200,9 +207,19 @@ public class PathResource {
         orderList.setItems(order.getItems());
         orderList.setCost(order.getCost());
 
-        String orderJson = mapper.writeValueAsString(orderList);
-
         OrderList finalList = orderListBean.createOrder(orderList);
+
+        // Change availability
+        personWithLowestTime.setAvailability(false);
+        String putBodyString = null;
+
+        try {
+            putBodyString = mapper.writeValueAsString(personWithLowestTime);
+        } catch (JsonProcessingException e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Problem while delivery person object.").build();
+        }
+
+        myHttpPut(url + "/" + personWithLowestTime.getId(), putBodyString);
 
         return Response.status(Response.Status.OK).entity(finalList).build();
     }
@@ -247,6 +264,26 @@ public class PathResource {
             return EntityUtils.toString(response.getEntity());
         } catch (IOException e) {
             return e.getMessage();
+        }
+    }
+
+    private String myHttpPut(String url, String jsonbody) {
+        HttpPut request = new HttpPut(url);
+        request.setHeader("Accept", "application/json");
+        request.setHeader("Content-type", "application/json");
+        CloseableHttpResponse response = null;
+        System.out.println(jsonbody);
+        try {
+            request.setEntity(new StringEntity(jsonbody));
+            System.out.println(request.getEntity().toString());
+        } catch (UnsupportedEncodingException e) {
+            return e.getMessage();
+        }
+        try {
+            response = httpClient.execute(request);
+            return EntityUtils.toString(response.getEntity());
+        } catch (IOException | IllegalArgumentException e) {
+            return  e.getMessage();
         }
     }
 }

@@ -31,6 +31,7 @@
     <kumuluzee-health.version>2.4.4</kumuluzee-health.version>
     <kumuluzee-discovery.version>1.1.1</kumuluzee-discovery.version>
     <kumuluzee-metrics.version>2.3.0</kumuluzee-metrics.version>
+    <kumuluzee-graphql.version>1.1.0</kumuluzee-graphql.version>
     <postgresql.version>42.5.0</postgresql.version>
   </properties>
 
@@ -108,6 +109,12 @@
         <groupId>com.kumuluz.ee.metrics</groupId>
         <artifactId>kumuluzee-metrics-core</artifactId>
         <version>${kumuluzee-metrics.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.kumuluz.ee.graphql</groupId>
+        <artifactId>kumuluzee-graphql</artifactId>
+        <version>${kumuluzee-graphql.version}</version>
       </dependency>
 
       <dependency>

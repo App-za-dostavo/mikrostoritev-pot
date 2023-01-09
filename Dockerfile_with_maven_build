@@ -6,5 +6,5 @@ RUN mvn --show-version --update-snapshots --batch-mode clean package
 FROM amazoncorretto:18
 WORKDIR /app
 COPY --from=build ./app/api/target/api-1.0-SNAPSHOT.jar /app
-EXPOSE 8081
+EXPOSE 8080
 CMD ["java", "-jar", "api-1.0-SNAPSHOT.jar"]
