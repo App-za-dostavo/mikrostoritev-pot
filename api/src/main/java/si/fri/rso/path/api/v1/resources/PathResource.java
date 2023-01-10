@@ -55,7 +55,7 @@ public class PathResource {
 
     private static final double LATITUDE = 46.0466531;
     private static final double LONGITUDE = 14.5076098;
-    private String url = "http://172.21.0.5:8082/v1/dostavljalec";
+    private String url = "http://172.21.0.4:8082/v1/dostavljalec";
     @Inject
     private OrderListBean orderListBean;
 

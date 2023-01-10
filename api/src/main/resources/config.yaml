@@ -65,3 +65,4 @@ kumuluzee:
 
   external-api:
     mapquestApi: https://www.mapquestapi.com/directions/v2/routematrix?key=C0a6ATPbuQ30XjwFnoy7xAYYmajidgtD
+    dostavljalecApi: http://172.21.0.5:8082/v1/dostavljalec
