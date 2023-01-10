@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kumuluz.ee.configuration.cdi.ConfigBundle;
 import com.kumuluz.ee.configuration.cdi.ConfigValue;
+import com.kumuluz.ee.configuration.utils.ConfigurationUtil;
 import com.kumuluz.ee.cors.annotations.CrossOrigin;
 import com.kumuluz.ee.discovery.annotations.DiscoverService;
 import com.kumuluz.ee.logs.cdi.Log;
@@ -20,6 +21,7 @@ import org.apache.http.util.EntityUtils;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
@@ -43,7 +45,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 @Log(LogParams.METRICS)
-@ConfigBundle("external-api")
+@ConfigBundle("kumuluzee.external-api")
 @ApplicationScoped
 @javax.ws.rs.Path("/pot")
 @Produces(MediaType.APPLICATION_JSON)
@@ -53,7 +55,7 @@ public class PathResource {
 
     private static final double LATITUDE = 46.0466531;
     private static final double LONGITUDE = 14.5076098;
-    private String url = "http://172.21.0.6:8082/v1/dostavljalec";
+    private String url = "http://172.21.0.5:8082/v1/dostavljalec";
     @Inject
     private OrderListBean orderListBean;
 
@@ -64,15 +66,11 @@ public class PathResource {
     @DiscoverService(value = "dostavljalec-service", environment = "dev", version = "1.0.0")
     private Optional<String> dostavljalecUrl;
 
-    @Inject
-    @DiscoverService(value = "narocilo-service", environment = "dev", version = "1.0.0")
-    private Optional<String> narociloUrl;
-
     @ConfigValue(watch = true)
     private String mapquestApi = "https://www.mapquestapi.com/directions/v2/routematrix?key=C0a6ATPbuQ30XjwFnoy7xAYYmajidgtD";
 
     public String getMapquestApi() {
-        return this.mapquestApi;
+        return mapquestApi;
     }
 
     public void setMapquestApi(String mapquestApi) {
@@ -85,7 +83,7 @@ public class PathResource {
     @Operation(description = "Get an ip of another microservice", summary = "Get method for fetching ip from a different service.")
     @APIResponses({
             @APIResponse(responseCode = "200",
-                    description = "Delivery people ip",
+                    description = "Delivery person ip",
                     content = @Content(schema = @Schema(implementation = String.class))),
             @APIResponse(responseCode = "500", description = "Service unavailable")
 
@@ -99,7 +97,11 @@ public class PathResource {
         return Response.status(Response.Status.OK).entity(dostavljalecUrl).build();
     }
 
-    @Operation(description = "Get a list of available orders")
+    @Operation(description = "Get a list of available orders", summary = "Orders list")
+    @APIResponses({
+            @APIResponse(responseCode = "200",
+                    description = "List of orders",
+                    content = @Content(schema = @Schema(implementation = DeliveryPerson.class)))})
     @GET
     @Log(value = LogParams.METRICS)
     public Response getOrderList() {
@@ -109,7 +111,7 @@ public class PathResource {
         return Response.status(Response.Status.OK).entity(orderLists).build();
     }
 
-    @Operation(description = "Get a list of all delivery people and calculate distance and time to find the one with lowest time needed.", summary = "A list of calculated time and distance.")
+    @Operation(description = "Post a new order with included data about time and distance needed", summary = "New order with time, distance and delivery person included")
     @APIResponses({
             @APIResponse(responseCode = "200",
                     description = "Time and distance list",
@@ -118,7 +120,10 @@ public class PathResource {
     })
     @POST
     @Path("/lokacija={latitude},{longitude}")
-    public Response getDeliveryDiscovery(@PathParam("latitude") Double latitude, @PathParam("longitude") Double longitude, @RequestBody(description = "A new order added to the database", required = true, content = @Content(schema = @Schema(implementation = Order.class)))Order order) throws JsonProcessingException {
+    public Response getDeliveryDiscovery(@PathParam("latitude") Double latitude, @PathParam("longitude") Double longitude,
+                                         @RequestBody(description = "A new order added to the database", required = true,
+                                                 content = @Content(schema = @Schema(implementation = Order.class)))
+                                         Order order) throws JsonProcessingException {
         if (!dostavljalecUrl.isPresent()) {
             System.out.println("Other service unavailable");
             return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
@@ -171,6 +176,8 @@ public class PathResource {
             latLngArr.put(latLng);
             jsonBody.put("locations", latLngArr);
 
+            System.out.println("Mapquestapi " + mapquestApi);
+            System.out.println("Body " + jsonBody);
             String apiResponse = myHttpPost(mapquestApi, jsonBody.toString());
 
             JSONObject mapQuestJson;
@@ -179,7 +186,9 @@ public class PathResource {
 
             try {
                 mapQuestJson = new JSONObject(apiResponse);
+                System.out.println("MapquestJSON" + mapQuestJson);
                 distances = (JSONArray) mapQuestJson.get("distance");
+                System.out.println("Distance " + distances);
                 times = (JSONArray) mapQuestJson.get("time");
             } catch (JSONException e) {
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Something went wrong while parsing JSON response").build();
@@ -224,9 +233,21 @@ public class PathResource {
         return Response.status(Response.Status.OK).entity(finalList).build();
     }
 
+    @Operation(description = "Delete an order from a list", summary = "Delete order")
+    @APIResponses({
+            @APIResponse(
+                    responseCode = "200",
+                    description = "Order successfully deleted."
+            ),
+            @APIResponse(
+                    responseCode = "404",
+                    description = "Not found."
+            )
+    })
     @DELETE
     @Path("/{orderId}")
-    public Response deleteOrder(@PathParam("orderId") Integer orderId) {
+    public Response deleteOrder(@Parameter(description = "Order id") @PathParam("orderId") Integer orderId) {
+
         boolean deleted = orderListBean.deleteOrder(orderId);
 
         if (deleted) {

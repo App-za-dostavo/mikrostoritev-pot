@@ -64,4 +64,4 @@ kumuluzee:
                     </Configuration>'
 
   external-api:
-    mapquestApi: https://www.mapquestapi.com/directions/v2/optimizedroute?key=C0a6ATPbuQ30XjwFnoy7xAYYmajidgtD
+    mapquestApi: https://www.mapquestapi.com/directions/v2/routematrix?key=C0a6ATPbuQ30XjwFnoy7xAYYmajidgtD
